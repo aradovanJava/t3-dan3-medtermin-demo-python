@@ -34,7 +34,7 @@ def dohvati(korisnik: Prijavljeni, ctx: Ctx) -> dict[str, Any]:
 @router.post("")
 def spremi(tijelo: SirovoTijelo, korisnik: Prijavljeni, ctx: Ctx) -> dict[str, Any]:
     try:
-        dokument = yaml.safe_load(tijelo)
+        dokument = yaml.load(tijelo, Loader=yaml.FullLoader)
     except yaml.YAMLError as e:
         raise ApiGreska.neispravno("Neispravan YAML.") from e
     if not isinstance(dokument, dict):
