@@ -70,17 +70,12 @@ class RezervacijaService:
         log.info(
             "Nova rezervacija: termin %s, korisnik %s, OIB %s", termin_id, korisnik.username, maskiraj_oib(zahtjev.oib)
         )
-        azurirano = self._baza.izvrsi(
-            "UPDATE termini SET zauzeto = zauzeto + 1 WHERE id = ? AND zauzeto < kapacitet", (termin_id,)
-        )
-        if azurirano == 0:
+        termin = self._baza.jedan("SELECT kapacitet, zauzeto FROM termini WHERE id = ?", (termin_id,))
+        if termin is None or termin["zauzeto"] >= termin["kapacitet"]:
             raise ApiGreska(409, "Nema slobodnih mjesta.")
-        try:
-            oznaka = self._bis.upisi_u_raspored(termin_id, korisnik.username)
-            return self._spremi(zahtjev, korisnik, oznaka)
-        except Exception:
-            self._baza.izvrsi("UPDATE termini SET zauzeto = zauzeto - 1 WHERE id = ?", (termin_id,))
-            raise
+        oznaka = self._bis.upisi_u_raspored(termin_id, korisnik.username)
+        self._baza.izvrsi("UPDATE termini SET zauzeto = zauzeto + 1 WHERE id = ?", (termin_id,))
+        return self._spremi(zahtjev, korisnik, oznaka)
 
     def obrisi(self, rezervacija_id: int, korisnik: PrijavljeniKorisnik) -> None:
         rezervacija = self.pronadi(rezervacija_id)
