@@ -12,6 +12,7 @@ addopts = "-ra"
 markers = [
   "funkcionalno: funkcionalni testovi aplikacije",
   "primjer: primjer testa (predložak za vlastite testove)",
+  "sigurnost: sigurnosni testovi (propusti koje alati iz pipelinea ne vide)",
 ]
 
 [tool.coverage.run]
