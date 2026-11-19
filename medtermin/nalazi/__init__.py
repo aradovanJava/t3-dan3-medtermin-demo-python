@@ -1,0 +1,1 @@
+"""Nalazi pacijenata."""
