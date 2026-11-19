@@ -1,0 +1,126 @@
+### MedTermin – ručni sigurnosni testovi (blok 2 radionice, plan: docs/plan-ispitivanja.md)
+# VS Code REST Client ili PyCharm HTTP Client. Aplikacija: python -m medtermin (port 8000)
+# Tokene iz odgovora na prijave (prva tri zahtjeva) zalijepite u varijable ispod.
+@host = http://localhost:8000
+@ana = ZALIJEPI_TOKEN_ANE
+@marko = ZALIJEPI_TOKEN_MARKA
+@lijecnik = ZALIJEPI_TOKEN_LIJECNIKA
+
+### Prijava – ana
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{"username": "ana", "password": "Ana12345!"}
+
+### Prijava – marko
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{"username": "marko", "password": "Marko12345!"}
+
+### Prijava – dr.horvat (za uvoz termina)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{"username": "dr.horvat", "password": "Ovlasteni12345!"}
+
+
+############################################################################
+### RT-01 · S01 · WSTG-ATHZ-04 – ana briše markovu rezervaciju (seed id 2)
+DELETE {{host}}/api/rezervacije/2
+Authorization: Bearer {{ana}}
+# očekivano: 404 {"greska": "Rezervacija nije pronađena."} – nikako 204
+
+### RT-01 · marko i dalje vidi svoju rezervaciju 2
+GET {{host}}/api/rezervacije/moje
+Authorization: Bearer {{marko}}
+
+
+############################################################################
+### RT-02 · S09 · WSTG-INPV-02 – napomena s HTML-om (termin 3 je slobodan u seedu)
+POST {{host}}/api/rezervacije
+Authorization: Bearer {{ana}}
+Content-Type: application/json
+
+{"terminId": 3, "napomena": "<script>alert('x')</script><img src=x onerror=alert(1)>", "oib": "48291736504"}
+
+### RT-02 · ispis te rezervacije (id iz prethodnog odgovora)
+GET {{host}}/ispis/rezervacije/3
+Authorization: Bearer {{ana}}
+# očekivano: &lt;script&gt; u tijelu (kodirano), zaglavlje Content-Security-Policy: default-src 'none'; …
+
+
+############################################################################
+### RT-03 · S10 · WSTG-BUSL-05 – utrka se ručno NE može pouzdano ispitati
+# Pojedinačni zahtjev je uvijek ispravan. Dokaz je automatski test tests/sigurnost/test_s10_zadnje_mjesto.py
+# (10 istodobnih zahtjeva, stvarni uvicorn poslužitelj, threading.Barrier). Ovdje samo provjera da drugi zahtjev dobiva 409:
+POST {{host}}/api/termini/uvoz
+Authorization: Bearer {{lijecnik}}
+Content-Type: application/xml
+
+<termini><termin><lijecnikId>1</lijecnikId><pocetak>2027-03-01T08:00</pocetak><kapacitet>1</kapacitet><napomena>Zadnje mjesto</napomena></termin></termini>
+
+### RT-03 · ana uzima jedino mjesto (terminId iz odgovora na uvoz)
+POST {{host}}/api/rezervacije
+Authorization: Bearer {{ana}}
+Content-Type: application/json
+
+{"terminId": 11, "napomena": "Prva", "oib": "48291736504"}
+
+### RT-03 · marko za isti termin → 409 {"greska": "Nema slobodnih mjesta."}
+POST {{host}}/api/rezervacije
+Authorization: Bearer {{marko}}
+Content-Type: application/json
+
+{"terminId": 11, "napomena": "Druga", "oib": "73019485267"}
+
+
+############################################################################
+### RT-04 · S12 – neuspjela prijava (zatim pogledajte konzolu aplikacije)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{"username": "marko", "password": "pogresna"}
+# u logu: WARNING … Neuspjela prijava za korisnika marko
+# u logu NE smije biti: Ana12345! ni 48291736504 (OIB se ispisuje kao *******6504)
+
+
+############################################################################
+### RT-05 · S13 · WSTG-ERRH-01 – nepoznat format, tuđi nalaz (nalaz 1 je anin)
+GET {{host}}/api/nalazi/1?format=xml
+Authorization: Bearer {{marko}}
+# očekivano: 404 „Nalaz nije pronađen.“; u tijelu nema „Krvna slika“ ni teksta iznimke (Traceback)
+
+### RT-05 · prazan format
+GET {{host}}/api/nalazi/1?format=
+Authorization: Bearer {{marko}}
+
+
+############################################################################
+### RT-06 · WSTG-SESS-06 – odjava (nalaz N-01; prije popravka: 404, token i dalje vrijedi)
+POST {{host}}/api/auth/odjava
+Authorization: Bearer {{ana}}
+# očekivano: 204
+
+### RT-06 · isti token nakon odjave
+GET {{host}}/api/ja
+Authorization: Bearer {{ana}}
+# očekivano: 401 (prije popravka: 200)
+# WSTG-SESS-07: neaktivnost se ručno provjerava s kraćim trajanjem (31 min je predugo za radionicu):
+#   bash:       APP_SESIJA_NEAKTIVNOST_S=60 python -m medtermin
+#   PowerShell: $env:APP_SESIJA_NEAKTIVNOST_S=60; python -m medtermin
+
+
+############################################################################
+### RT-07 · WSTG-ATHN-03 – pogađanje lozinke (nalaz N-02). Pošaljite 20 puta…
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{"username": "marko", "password": "pogresna"}
+
+### RT-07 · …pa ispravnu lozinku
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{"username": "marko", "password": "Marko12345!"}
+# trenutno: 200 nakon bilo kojeg broja pogrešnih pokušaja → nema ograničenja (R-03)

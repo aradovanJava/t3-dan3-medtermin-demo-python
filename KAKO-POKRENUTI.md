@@ -38,6 +38,7 @@ Primjeri zahtjeva za REST API nalaze se u `http/medtermin.http` (VS Code REST Cl
 pytest                       # svi testovi
 pytest -m funkcionalno       # funkcionalni testovi
 pytest -m primjer            # primjer testa
+pytest -m sigurnost          # sigurnosni testovi (propusti koje alati iz pipelinea ne vide)
 pytest --cov --cov-report=html   # pokrivenost koda → htmlcov/index.html
 ```
 
@@ -65,7 +66,7 @@ cyclonedx-py requirements requirements.txt -o bom.json   # popis ovisnosti (SBOM
 | admin | `Admin12345!` | ADMIN |
 
 API prihvaća token u zaglavlju `Authorization: Bearer <token>` (dobiva se s `POST /api/auth/login`)
-ili kolačić `SESSION` koji postavlja prijava obrascem.
+ili kolačić `SESSION` koji postavlja prijava obrascem. Odjava: `POST /api/auth/odjava`.
 
 ## Konfiguracija (varijable okruženja, vidi `medtermin/postavke.py`)
 
@@ -75,6 +76,8 @@ ili kolačić `SESSION` koji postavlja prijava obrascem.
 | `APP_MAILBOX_DIR` | mapa u koju se „šalju” e-poruke (tekstualne datoteke) | `./data/posta` |
 | `APP_CORS_ALLOWED_ORIGINS` | origini frontend aplikacije (odvojeni zarezom) | `http://localhost:5173` |
 | `APP_PORT` | port aplikacije | `8000` |
+| `APP_SESIJA_NEAKTIVNOST_S` | istek tokena prijave nakon neaktivnosti (sekunde) | `1800` (30 min) |
+| `APP_SESIJA_NAJDULJE_S` | najdulje trajanje tokena od prijave (sekunde) | `28800` (8 h) |
 
 Poruke za promjenu lozinke ne šalju se stvarno, nego se zapisuju u `APP_MAILBOX_DIR`
 (datoteka `<korisnik>-<vrijeme>.txt` s tokenom i poveznicom).

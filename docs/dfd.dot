@@ -1,0 +1,63 @@
+// Dijagram toka podataka (DFD) – MedTermin (Python). Izvor za dfd.png / dfd.svg:
+//   dot -Tpng -Gdpi=150 dfd.dot -o dfd.png && dot -Tsvg dfd.dot -o dfd.svg
+digraph DFD {
+  graph [rankdir=TB, fontname="DejaVu Sans", fontsize=11, nodesep=0.45, ranksep=0.7, pad=0.3, newrank=true,
+         label="MedTermin (Python) · dijagram toka podataka (DFD) s granicama povjerenja · Tjedan 3, Dan 3", labelloc=t, fontsize=14];
+  node  [fontname="DejaVu Sans", fontsize=10];
+  edge  [fontname="DejaVu Sans", fontsize=8.5, color="#444444", fontcolor="#222222", arrowsize=0.7];
+
+  // Vanjski entiteti (pravokutnik)
+  node [shape=box, style="filled", fillcolor="#F3F4F6", color="#1F1F2E", penwidth=1.2];
+  E1 [label="E1 Pacijent\n(preglednik / klijent)\nana, marko"];
+  E2 [label="E2 Liječnik\ndr.horvat"];
+  E3 [label="E3 Administrator"];
+  E4 [label="E4 Sustav e-pošte\n(poveznica za reset)"];
+  E5 [label="E5 Bolnički inf. sustav\n(BIS – raspored)"];
+  E6 [label="E6 Programer"];
+  E7 [label="E7 Registar paketa\n(PyPI)"];
+
+  subgraph cluster_posluzitelj {
+    label="TB1 · GRANICA POVJERENJA · POSLUŽITELJ APLIKACIJE"; fontsize=10; fontcolor="#EE2F58";
+    style="dashed,rounded"; color="#EE2F58"; penwidth=1.6;
+    P1 [shape=ellipse, style="filled", fillcolor="#FFE4EA", color="#EE2F58", penwidth=1.6,
+        label="P1 MedTermin API\nFastAPI · uvicorn\nprijava · rezervacije · nalazi\nispis · uvoz termina · postavke"];
+    node [shape=plain];
+    D2 [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5"><TR><TD SIDES="TB">D2 Dokumenti nalaza (APP_STORAGE_DIR)</TD></TR></TABLE>>];
+    D3 [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5"><TR><TD SIDES="TB">D3 Log aplikacije</TD></TR></TABLE>>];
+    D4 [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5"><TR><TD SIDES="TB">D4 Sesije (TokenStore u memoriji)</TD></TR></TABLE>>];
+  }
+
+  subgraph cluster_baza {
+    label="TB2 · POSLUŽITELJ BAZE"; fontsize=10; fontcolor="#EE2F58";
+    style="dashed,rounded"; color="#EE2F58"; penwidth=1.6;
+    D1 [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5"><TR><TD SIDES="TB">D1 Baza (SQLite u memoriji u razvoju · SQL Server u produkciji)<BR/><FONT POINT-SIZE="8">korisnici (hash lozinke, OIB) · rezervacije (napomena, OIB) · termini · nalazi · reset_tokeni</FONT></TD></TR></TABLE>>];
+  }
+
+  subgraph cluster_cicd {
+    label="TB3 · GRANICA POVJERENJA · CI/CD (GITHUB)"; fontsize=10; fontcolor="#EE2F58";
+    style="dashed,rounded"; color="#EE2F58"; penwidth=1.6;
+    P2 [shape=ellipse, style="filled", fillcolor="#FFE4EA", color="#EE2F58", penwidth=1.6,
+        label="P2 GitHub Actions\nsigurnosna vrata"];
+    D5 [shape=plain, label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5"><TR><TD SIDES="TB">D5 Repozitorij + tajne (DAST_LOZINKA)</TD></TR></TABLE>>];
+  }
+
+  // Tokovi podataka (svaka strelica ima oznaku: što i kako)
+  E1 -> P1 [label="F1 HTTPS + token / kolačić SESSION\nprijava, rezervacija (napomena, OIB)"];
+  P1 -> E1 [label="F2 JSON · PDF nalaza · HTML potvrda"];
+  E2 -> P1 [label="F3 HTTPS + token\nuvoz termina (XML)"];
+  E3 -> P1 [label="F4 HTTPS + token\npregled svih zapisa"];
+  P1 -> D1 [label="F5 SQL (DB-API, TLS u produkciji)\nparametrizirani upiti", dir=both];
+  P1 -> D2 [label="F6 čitanje datoteka nalaza"];
+  P1 -> D3 [label="F7 sigurnosni događaji\n(bez lozinke, OIB maskiran)"];
+  P1 -> D4 [label="F8 izdavanje / provjera / opoziv tokena", dir=both];
+  P1 -> E4 [label="F9 e-pošta s poveznicom\nza reset (jednokratni token)"];
+  P1 -> E5 [label="F10 HTTPS: upis u raspored"];
+  E6 -> D5 [label="F11 push / PR"];
+  D5 -> P2 [label="F12 kod, workflow, tajne"];
+  E7 -> P2 [label="F13 ovisnosti\n(SBOM, OSV, pip-audit)"];
+  P2 -> P1 [label="F14 isporuka: kod +\novisnosti s PyPI-ja", style=bold, color="#EE2F58", fontcolor="#EE2F58"];
+
+  { rank=same; E1; E2; E3; }
+  { rank=same; E6; E7; }
+  { rank=same; E4; E5; }
+}
