@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import secrets
 import threading
+import time
 from dataclasses import dataclass
 from typing import Annotated
 
@@ -32,24 +33,64 @@ class PrijavljeniKorisnik:
         return self.uloga in uloge
 
 
-class TokenStore:
-    """Tokeni prijave čuvaju se u memoriji (token → korisnik)."""
+@dataclass
+class _Sesija:
+    korisnik: PrijavljeniKorisnik
+    izdana: float
+    zadnja_uporaba: float
 
-    def __init__(self) -> None:
-        self._tokeni: dict[str, PrijavljeniKorisnik] = {}
+
+class TokenStore:
+    """Tokeni prijave čuvaju se u memoriji (token → sesija).
+
+    N-01: token istječe nakon neaktivnosti i najkasnije nakon najduljeg trajanja; odjava ga opoziva, a promjena
+    lozinke opoziva sve tokene korisnika.
+    """
+
+    def __init__(self, neaktivnost_s: int = 1800, najdulje_s: int = 28800) -> None:
+        self._tokeni: dict[str, _Sesija] = {}
         self._brava = threading.Lock()
+        self._neaktivnost = neaktivnost_s
+        self._najdulje = najdulje_s
+
+    def _istekla(self, sesija: _Sesija, sada: float) -> bool:
+        return sada - sesija.zadnja_uporaba > self._neaktivnost or sada - sesija.izdana > self._najdulje
 
     def izdaj(self, korisnik: PrijavljeniKorisnik) -> str:
         token = secrets.token_urlsafe(32)
+        sada = time.monotonic()
         with self._brava:
-            self._tokeni[token] = korisnik
+            for istekli in [t for t, s in self._tokeni.items() if self._istekla(s, sada)]:
+                del self._tokeni[istekli]  # čišćenje isteklih
+            self._tokeni[token] = _Sesija(korisnik, sada, sada)
         return token
 
     def korisnik(self, token: str | None) -> PrijavljeniKorisnik | None:
+        """Korisnik za valjan token, inače ``None``; istekli token se briše. Upotreba produljuje neaktivnost."""
         if not token:
             return None
+        sada = time.monotonic()
         with self._brava:
-            return self._tokeni.get(token)
+            sesija = self._tokeni.get(token)
+            if sesija is None:
+                return None
+            if self._istekla(sesija, sada):
+                del self._tokeni[token]
+                return None
+            sesija.zadnja_uporaba = sada
+            return sesija.korisnik
+
+    def opozovi(self, token: str | None) -> None:
+        """Odjava: token odmah prestaje vrijediti."""
+        if token:
+            with self._brava:
+                self._tokeni.pop(token, None)
+
+    def opozovi_sve(self, username: str) -> None:
+        """Promjena lozinke: prestaju vrijediti svi tokeni korisnika."""
+        with self._brava:
+            for t in [t for t, s in self._tokeni.items() if s.korisnik.username == username]:
+                del self._tokeni[t]
 
 
 def token_iz_zahtjeva(request: Request) -> str | None:

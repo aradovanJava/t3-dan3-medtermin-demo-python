@@ -22,6 +22,10 @@ Content-Type: application/json
 GET {{host}}/api/ja
 Authorization: Bearer {{token}}
 
+### Odjava (token odmah prestaje vrijediti)
+POST {{host}}/api/auth/odjava
+Authorization: Bearer {{token}}
+
 ### Registracija novog korisnika
 POST {{host}}/api/auth/register
 Content-Type: application/json
