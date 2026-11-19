@@ -3,7 +3,7 @@
 pytest==9.2.0
 pytest-cov==7.1.0
 # klijent za Starlette TestClient
-httpx2==2.16.0
+httpx2==2.16.2
 # alati za statičku analizu koda i provjeru ovisnosti
 bandit==1.9.4
 ruff==0.17.3
