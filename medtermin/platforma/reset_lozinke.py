@@ -6,6 +6,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta
 
+from medtermin.platforma.autentikacija import TokenStore
 from medtermin.platforma.baza import Baza
 from medtermin.platforma.korisnici import KorisnikService, provjeri_lozinku
 from medtermin.platforma.posta import PostaService
@@ -14,10 +15,11 @@ TRAJANJE_TOKENA = timedelta(minutes=15)
 
 
 class ResetLozinkeService:
-    def __init__(self, baza: Baza, korisnici: KorisnikService, posta: PostaService) -> None:
+    def __init__(self, baza: Baza, korisnici: KorisnikService, posta: PostaService, tokeni: TokenStore) -> None:
         self._baza = baza
         self._korisnici = korisnici
         self._posta = posta
+        self._tokeni = tokeni
 
     def zatrazi(self, username: str) -> None:
         korisnik = self._korisnici.pronadi(username)
@@ -48,6 +50,7 @@ class ResetLozinkeService:
         if iskoristeno != 1:
             return False
         self._korisnici.promijeni_lozinku(zapis["username"], nova_lozinka)
+        self._tokeni.opozovi_sve(zapis["username"])  # N-01: stari (možda ukradeni) tokeni više ne vrijede
         return True
 
 

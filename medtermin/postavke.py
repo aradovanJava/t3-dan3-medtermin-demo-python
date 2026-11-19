@@ -22,3 +22,7 @@ class Postavke:
     cors_allowed_origins: list[str] = field(default_factory=_origini)
     # port na kojem se aplikacija pokreće (APP_PORT); koristi se i u poveznicama u e-porukama
     port: int = field(default_factory=lambda: int(os.environ.get("APP_PORT", "8000")))
+    # N-01: token istječe nakon neaktivnosti (APP_SESIJA_NEAKTIVNOST_S, zadano 30 min)
+    sesija_neaktivnost_s: int = field(default_factory=lambda: int(os.environ.get("APP_SESIJA_NEAKTIVNOST_S", "1800")))
+    # … i najkasnije nakon najduljeg trajanja od prijave (APP_SESIJA_NAJDULJE_S, zadano 8 h)
+    sesija_najdulje_s: int = field(default_factory=lambda: int(os.environ.get("APP_SESIJA_NAJDULJE_S", "28800")))

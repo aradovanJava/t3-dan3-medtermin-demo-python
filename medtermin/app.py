@@ -34,15 +34,16 @@ def create_app(postavke: Postavke | None = None) -> FastAPI:
     hasher = LozinkaHasher()
     korisnici = KorisnikService(baza, hasher)
     posta = PostaService(pohrana, postavke)
+    tokeni = TokenStore(postavke.sesija_neaktivnost_s, postavke.sesija_najdulje_s)
     kontekst = Kontekst(
         postavke=postavke,
         baza=baza,
         pohrana=pohrana,
-        tokeni=TokenStore(),
+        tokeni=tokeni,
         hasher=hasher,
         korisnici=korisnici,
         posta=posta,
-        reset=ResetLozinkeService(baza, korisnici, posta),
+        reset=ResetLozinkeService(baza, korisnici, posta, tokeni),
         rezervacije=RezervacijaService(baza, BolnickiSustavKlijent()),
     )
     pocetni_podaci.ucitaj(kontekst)

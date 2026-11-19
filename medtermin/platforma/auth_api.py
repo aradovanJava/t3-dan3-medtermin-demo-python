@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+import logging
+
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from medtermin.platforma.autentikacija import Prijavljeni
+from medtermin.platforma.autentikacija import KOLACIC, Prijavljeni, token_iz_zahtjeva
 from medtermin.platforma.greske import ApiGreska, greska
 from medtermin.platforma.kontekst import Ctx
 from medtermin.platforma.korisnici import PrijavaZahtjev, RegistracijaZahtjev
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
 
@@ -37,6 +41,16 @@ def login(zahtjev: PrijavaZahtjev, ctx: Ctx) -> JSONResponse:
         return greska(401, "Neispravno korisničko ime ili lozinka.")
     token = ctx.tokeni.izdaj(korisnik.prijavljeni())
     return JSONResponse({"token": token, "username": korisnik.username, "uloga": korisnik.uloga})
+
+
+@router.post("/auth/odjava", status_code=204)
+def odjava(request: Request, korisnik: Prijavljeni, ctx: Ctx) -> Response:
+    """N-01: odjava opoziva token (zaglavlje ili kolačić) i briše kolačić SESSION."""
+    ctx.tokeni.opozovi(token_iz_zahtjeva(request))
+    log.info("Odjava korisnika %s", korisnik.username)
+    odgovor = Response(status_code=204)
+    odgovor.delete_cookie(KOLACIC, path="/", httponly=True, samesite="lax")
+    return odgovor
 
 
 @router.post("/auth/register", status_code=201)
